@@ -27,7 +27,7 @@ import (
 //       - opt. human readable description (via `echo "Human readbale" && command`)
 // - create a wonderful readable view (html)
 
-const TIMEOUT = 1
+const TIMEOUT = 5
 
 type CrontabEntry struct {
 	Schedule string
@@ -96,6 +96,25 @@ func (self *CrontabPerServer) parseEntries() {
 	}
 }
 
+func writeFile(outputFilename string, results *[]CrontabPerServer) {
+	file, err := os.OpenFile(outputFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		panic("opening file failed: " + err.Error())
+	}
+	defer file.Close()
+
+	templateFuncs := template.FuncMap{
+		"creationTime": templateCreationTime,
+		"version":      templateVersion,
+	}
+	template := template.Must(template.New("overview.tpl.html").Funcs(templateFuncs).ParseFiles("overview.tpl.html"))
+	err = template.Execute(file, results)
+	if err != nil {
+		panic("writing file failed: " + err.Error())
+	}
+	fmt.Println("... wrote to file", outputFilename)
+}
+
 func templateCreationTime() string {
 	return time.Now().Format("2006-01-02 15:04 MST")
 }
@@ -132,6 +151,7 @@ func main() {
 	}
 
 	collector := make(chan CrontabPerServer)
+	done := make(chan bool)
 
 	for _, hostname := range *servers {
 		fmt.Println("Collecting from " + hostname + "...")
@@ -148,39 +168,31 @@ func main() {
 		}(hostname)
 	}
 
-	file, err := os.OpenFile(*outputFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		panic("writing file failed: " + err.Error())
-	}
-	defer file.Close()
-
-	templateFuncs := template.FuncMap{
-		"creationTime": templateCreationTime,
-		"version":      templateVersion,
-	}
-	template := template.Must(template.New("overview.template.html").Funcs(templateFuncs).ParseFiles("overview.template.html"))
-
 	go func() {
 		results := []CrontabPerServer{}
 		for {
 			select {
-			case result := <-collector:
+			case result, more := <-collector:
+				if !more {
+					done <- true
+					return
+				}
 				result.parseEntries()
 				results = append(results, result)
+				fmt.Println("... collected crontab with", len(result.Entries), "entries from", result.Server)
 
-				fmt.Println("collected crontab with", len(result.Entries), "entries from", result.Server)
-			case <-time.After(TIMEOUT * time.Second):
-				err := template.Execute(file, &results)
-				if err != nil {
-					panic("writing failed with " + err.Error())
+				if len(results) == len(*servers) {
+					writeFile(*outputFilename, &results)
+					close(collector)
 				}
+			case <-time.After(TIMEOUT * time.Second):
+				writeFile(*outputFilename, &results)
 				fmt.Println()
-				fmt.Println("Timeout")
+				fmt.Println("... Timeout!")
 				os.Exit(1)
 			}
 		}
 	}()
 
-	var input string
-	fmt.Scanln(&input)
+	<-done
 }

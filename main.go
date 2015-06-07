@@ -53,11 +53,11 @@ func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
 
 	client, err := ssh.Dial("tcp", hostname+":"+port, config)
 	if err != nil {
-		fmt.Println("Failed to dial: ", err)
+		halt("failed to connect to " + hostname + ": " + err.Error())
 	}
 	session, err := client.NewSession()
 	if err != nil {
-		fmt.Println("Failed to create session: ", err)
+		halt("failed to create session to " + hostname + ": " + err.Error())
 	}
 	defer session.Close()
 
@@ -78,15 +78,13 @@ func (self *CrontabPerServer) parseEntries() {
 		// 1-2: 0 3 * * 1
 		// 3: cmd
 		if len(x) != 4 {
-			fmt.Println("not detected crontab format")
-			os.Exit(1)
+			halt("crontab format could not be detected")
 		}
 
 		var entryForTime crontab.Entry
 		entryForTime, err := crontab.ParseEntry(x[1])
 		if err != nil {
-			fmt.Println("error parsing cron schedule")
-			os.Exit(1)
+			halt("parsing cron schedule failed")
 		}
 		var entry CrontabEntry = CrontabEntry{Schedule: x[1], Command: x[3], NextRun: entryForTime.Schedule.Next(time.Now())}
 		// fmt.Println(entry)
@@ -96,10 +94,15 @@ func (self *CrontabPerServer) parseEntries() {
 	}
 }
 
+func halt(msg string) {
+	fmt.Println(msg)
+	os.Exit(1)
+}
+
 func writeFile(outputFilename string, results *[]CrontabPerServer) {
 	file, err := os.OpenFile(outputFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		panic("opening file failed: " + err.Error())
+		halt("opening file failed: " + err.Error())
 	}
 	defer file.Close()
 
@@ -110,7 +113,7 @@ func writeFile(outputFilename string, results *[]CrontabPerServer) {
 	template := template.Must(template.New("overview.tpl.html").Funcs(templateFuncs).ParseFiles("overview.tpl.html"))
 	err = template.Execute(file, results)
 	if err != nil {
-		panic("writing file failed: " + err.Error())
+		halt("writing file failed: " + err.Error())
 	}
 	fmt.Println("... wrote to file", outputFilename)
 }
@@ -137,8 +140,7 @@ func main() {
 
 	conn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
 	if err != nil {
-		fmt.Println("error agent ", err)
-		os.Exit(1)
+		halt("failed connecting to ssh agent: " + err.Error())
 	}
 	defer conn.Close()
 	ag := agent.NewClient(conn)
@@ -188,8 +190,7 @@ func main() {
 			case <-time.After(TIMEOUT * time.Second):
 				writeFile(*outputFilename, &results)
 				fmt.Println()
-				fmt.Println("... Timeout!")
-				os.Exit(1)
+				halt("... Timeout!")
 			}
 		}
 	}()

@@ -96,6 +96,14 @@ func (self *CrontabPerServer) parseEntries() {
 	}
 }
 
+func templateCreationTime() string {
+	return time.Now().Format("2006-01-02 15:04 MST")
+}
+
+func templateVersion() string {
+	return "v1.0.0"
+}
+
 var (
 	app            = kingpin.New("cronjoboverview", "Get an overview about all your cronjobs.")
 	servers        = app.Arg("servers", "server").Required().Strings()
@@ -105,7 +113,7 @@ var (
 )
 
 func main() {
-	app.Version("1.0.0")
+	app.Version(templateVersion())
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	conn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
@@ -135,8 +143,8 @@ func main() {
 				*cronUser = *sshUser
 			}
 
-			output := executeCmd(cmd, hostname, clientConfig)
-			collector <- CrontabPerServer{Server: hostname, User: *cronUser, rawCrontab: output}
+			output := executeCmd(cmd, server, clientConfig)
+			collector <- CrontabPerServer{Server: server, User: *cronUser, rawCrontab: output}
 		}(hostname)
 	}
 
@@ -146,7 +154,11 @@ func main() {
 	}
 	defer file.Close()
 
-	template := template.Must(template.ParseFiles("overview.template"))
+	templateFuncs := template.FuncMap{
+		"creationTime": templateCreationTime,
+		"version":      templateVersion,
+	}
+	template := template.Must(template.New("overview.template.html").Funcs(templateFuncs).ParseFiles("overview.template.html"))
 
 	go func() {
 		results := []CrontabPerServer{}

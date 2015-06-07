@@ -1,0 +1,76 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>Cronjob Overview</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="https://github.com/MMore/cronjoboverview {{version}}">
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.21.0/css/uikit.min.css">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.21.0/js/uikit.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.21.0/js/components/sticky.min.js"></script>
+
+    <style>
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 300;
+    }
+    </style>
+  </head>
+  <body>
+
+    <div class="uk-container uk-container-center uk-margin-top">
+      <div class="uk-grid">
+        <div class="uk-width-1-1 uk-clearfix">
+          <p class="uk-float-right uk-text-right uk-margin-large-top uk-text-muted uk-hidden-small">created at {{creationTime}}<br />with {{version}}</p>
+          <h1 class="uk-heading-large" style="width:50%;">Cronjob Overview</h1>
+          <p class="uk-text-large">
+
+          </p>
+        </div>
+      </div>
+      <div class="uk-grid">
+        <div class="uk-width-large-3-4 uk-width-medium-4-4">
+          {{range $index, $result := .}}
+            <h2 id="server_{{$index}}">{{.Server}} [{{.User}}]</h2>
+            {{if len .Entries | ne 0}}
+              <table class="uk-table uk-table-striped uk-table-hover uk-table-condensed">
+                <thead>
+                  <tr>
+                      <th>Schedule</th>
+                      <th>Command</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{range .Entries}}
+                  <tr>
+                      <td><code>{{.Schedule}}</code></td>
+                      <td><code style="white-space: normal;">{{.Command}}</code></td>
+                  </tr>
+                  {{end}}
+                </tbody>
+              </table>
+            {{else}}
+              <div class="uk-alert uk-text-center">no cron entries</div>
+            {{end}}
+          {{end}}
+        </div>
+        <div class="uk-width-1-4 uk-hidden-small uk-hidden-medium">
+          {{if len . | lt 1 }}
+          <div class="uk-panel uk-panel-box" data-uk-sticky="{top:35}">
+            <h3 class="uk-panel-title">Servers</h3>
+            <ul class="uk-nav uk-nav-side" data-uk-scrollspy-nav="{closest:'li', smoothscroll:true}">
+              {{range $index, $results := .}}
+                <li><a href="#server_{{$index}}">{{.Server}}</a></li>
+              {{end}}
+            </ul>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

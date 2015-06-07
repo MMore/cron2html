@@ -57,26 +57,27 @@ func (self ServerCrontabs) Swap(i, j int) {
 	self[i], self[j] = self[j], self[i]
 }
 
+func formatRemoteCallLog(hostname, msg string) string {
+	return fmt.Sprintf("[%s] %s", hostname, msg)
+}
+
 func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
-	fmt.Println("[" + hostname + "] " + cmd)
+	fmt.Println(formatRemoteCallLog(hostname, "executing command '"+cmd+"'"))
 
-	// TODO: remove this hack later
-	var port string = "22"
-	if hostname == "gate.barzahlen.de" {
-		port = "88"
-	}
-
-	client, err := ssh.Dial("tcp", hostname+":"+port, config)
+	client, err := ssh.Dial("tcp", hostname+":22", config)
 	if err != nil {
-		halt("failed to connect to " + hostname + ": " + err.Error())
+		halt(formatRemoteCallLog(hostname, "failed to connect: "+err.Error()))
 	}
 	session, err := client.NewSession()
 	if err != nil {
-		halt("failed to create session to " + hostname + ": " + err.Error())
+		halt(formatRemoteCallLog(hostname, "failed to create session: "+err.Error()))
 	}
 	defer session.Close()
 
-	output, _ := session.Output(cmd)
+	output, err := session.Output(cmd)
+	if err != nil {
+		halt(formatRemoteCallLog(hostname, "failed to execute command '"+cmd+"': "+err.Error()))
+	}
 	return string(output[:])
 }
 

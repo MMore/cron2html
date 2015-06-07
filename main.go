@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/kevinwallace/crontab"
@@ -35,11 +36,25 @@ type CrontabEntry struct {
 	NextRun  time.Time
 }
 
-type CrontabPerServer struct {
+type ServerCrontab struct {
 	Server     string
 	User       string
 	rawCrontab string
 	Entries    []CrontabEntry
+}
+
+type ServerCrontabs []ServerCrontab
+
+func (self ServerCrontabs) Len() int {
+	return len(self)
+}
+
+func (self ServerCrontabs) Less(i, j int) bool {
+	return self[i].Server < self[j].Server
+}
+
+func (self ServerCrontabs) Swap(i, j int) {
+	self[i], self[j] = self[j], self[i]
 }
 
 func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
@@ -65,7 +80,7 @@ func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
 	return string(output[:])
 }
 
-func (self *CrontabPerServer) parseEntries() {
+func (self *ServerCrontab) parseEntries() {
 	regexp := regexp.MustCompile(`(?m)^(@[a-z]+|([0-9\*\/\-\,]+ [0-9\*\/\-\,]+ [0-9\*\/\-\,\?LW]+ [0-9A-Z\*\/\-\,]+ [0-9A-Z\*\/\-\,\?L\#]+[ 0-9\*\/\-\,]*)) (.*)$`)
 	result := regexp.FindAllStringSubmatch(self.rawCrontab, -1)
 
@@ -99,7 +114,7 @@ func halt(msg string) {
 	os.Exit(1)
 }
 
-func writeFile(outputFilename string, results *[]CrontabPerServer) {
+func writeFile(outputFilename string, results *ServerCrontabs) {
 	file, err := os.OpenFile(outputFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		halt("opening file failed: " + err.Error())
@@ -111,6 +126,7 @@ func writeFile(outputFilename string, results *[]CrontabPerServer) {
 		"version":      templateVersion,
 	}
 	template := template.Must(template.New("overview.tpl.html").Funcs(templateFuncs).ParseFiles("overview.tpl.html"))
+	sort.Sort(results)
 	err = template.Execute(file, results)
 	if err != nil {
 		halt("writing file failed: " + err.Error())
@@ -152,7 +168,7 @@ func main() {
 		},
 	}
 
-	collector := make(chan CrontabPerServer)
+	collector := make(chan ServerCrontab)
 	done := make(chan bool)
 
 	for _, hostname := range *servers {
@@ -166,12 +182,12 @@ func main() {
 			}
 
 			output := executeCmd(cmd, server, clientConfig)
-			collector <- CrontabPerServer{Server: server, User: *cronUser, rawCrontab: output}
+			collector <- ServerCrontab{Server: server, User: *cronUser, rawCrontab: output}
 		}(hostname)
 	}
 
 	go func() {
-		results := []CrontabPerServer{}
+		results := ServerCrontabs{}
 		for {
 			select {
 			case result, more := <-collector:

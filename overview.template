@@ -1,0 +1,15 @@
+<h1>Cronjob Overview</h1>
+
+{{range .}}
+	<h2>{{.Server}} [{{.User}}]</h2>
+
+	<ul>
+	  {{range .Entries}}
+	    <li>{{.Schedule}}: {{.Command}} {{.NextRun}}</li>
+	  {{end}}
+	</ul>
+{{else}}
+  nothing found
+{{end}}
+
+FIN

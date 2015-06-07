@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"net"
 	"os"
 	"regexp"
@@ -26,19 +27,19 @@ import (
 //       - opt. human readable description (via `echo "Human readbale" && command`)
 // - create a wonderful readable view (html)
 
-const TIMEOUT = 3
+const TIMEOUT = 1
 
 type CrontabEntry struct {
-	schedule string
-	command  string
-	nextRun  time.Time
+	Schedule string
+	Command  string
+	NextRun  time.Time
 }
 
 type CrontabPerServer struct {
-	server     string
-	user       string
+	Server     string
+	User       string
 	rawCrontab string
-	entries    []CrontabEntry
+	Entries    []CrontabEntry
 }
 
 func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
@@ -68,8 +69,8 @@ func (self *CrontabPerServer) parseEntries() {
 	regexp := regexp.MustCompile(`(?m)^(@[a-z]+|([0-9\*\/\-\,]+ [0-9\*\/\-\,]+ [0-9\*\/\-\,\?LW]+ [0-9A-Z\*\/\-\,]+ [0-9A-Z\*\/\-\,\?L\#]+[ 0-9\*\/\-\,]*)) (.*)$`)
 	result := regexp.FindAllStringSubmatch(self.rawCrontab, -1)
 
-	if self.entries == nil {
-		self.entries = make([]CrontabEntry, 0)
+	if self.Entries == nil {
+		self.Entries = []CrontabEntry{}
 	}
 
 	for _, x := range result {
@@ -87,19 +88,20 @@ func (self *CrontabPerServer) parseEntries() {
 			fmt.Println("error parsing cron schedule")
 			os.Exit(1)
 		}
-		var entry CrontabEntry = CrontabEntry{schedule: x[1], command: x[3], nextRun: entryForTime.Schedule.Next(time.Now())}
+		var entry CrontabEntry = CrontabEntry{Schedule: x[1], Command: x[3], NextRun: entryForTime.Schedule.Next(time.Now())}
 		// fmt.Println(entry)
 
 		// fmt.Println("i ", i, ": ", entry)
-		self.entries = append(self.entries, entry)
+		self.Entries = append(self.Entries, entry)
 	}
 }
 
 var (
-	app      = kingpin.New("cronjoboverview", "Get an overview about all your cronjobs.")
-	servers  = app.Arg("servers", "server").Required().Strings()
-	sshUser  = app.Flag("user", "SSH user for login").Short('u').Required().String()
-	cronUser = app.Flag("cron_user", "User of crontab (default is the SSH user)").Short('c').String()
+	app            = kingpin.New("cronjoboverview", "Get an overview about all your cronjobs.")
+	servers        = app.Arg("servers", "server").Required().Strings()
+	sshUser        = app.Flag("user", "SSH user for login").Short('u').Required().String()
+	cronUser       = app.Flag("cron_user", "User of crontab (default is the SSH user)").Short('c').String()
+	outputFilename = app.Flag("output", "Filename of the output").Short('o').Default("output.html").String()
 )
 
 func main() {
@@ -134,25 +136,32 @@ func main() {
 			}
 
 			output := executeCmd(cmd, hostname, clientConfig)
-			collector <- CrontabPerServer{server: hostname, user: *cronUser, rawCrontab: output}
+			collector <- CrontabPerServer{Server: hostname, User: *cronUser, rawCrontab: output}
 		}(hostname)
 	}
 
+	file, err := os.OpenFile(*outputFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		panic("writing file failed: " + err.Error())
+	}
+	defer file.Close()
+
+	template := template.Must(template.ParseFiles("overview.template"))
+
 	go func() {
+		results := []CrontabPerServer{}
 		for {
 			select {
 			case result := <-collector:
-
 				result.parseEntries()
+				results = append(results, result)
 
-				fmt.Println("Result for " + result.server + " (" + result.user + ")")
-				for _, entry := range result.entries {
-					fmt.Println("ENTRY")
-					fmt.Println(entry.schedule)
-					fmt.Println(entry.command)
-					fmt.Println(entry.nextRun.Format(time.RFC3339))
-				}
+				fmt.Println("collected crontab with", len(result.Entries), "entries from", result.Server)
 			case <-time.After(TIMEOUT * time.Second):
+				err := template.Execute(file, &results)
+				if err != nil {
+					panic("writing failed with " + err.Error())
+				}
 				fmt.Println()
 				fmt.Println("Timeout")
 				os.Exit(1)

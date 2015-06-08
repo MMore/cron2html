@@ -13,6 +13,16 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.21.0/js/uikit.min.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.21.0/js/components/sticky.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.10.3/moment.min.js"></script>
+    <script type="text/javascript" src="https://raw.githubusercontent.com/bunkat/later/master/later.min.js"></script>
+    <script type="text/javascript" src="https://raw.githubusercontent.com/azza-bazoo/prettycron/master/prettycron.js"></script>
+    <script type="text/javascript">
+      $(function() {
+        $(".cron-expr").each(function(){
+          $(this).closest("td").prev().html(prettyCron.toString($(this).html()));
+        });
+      });
+</script>
 
     <style>
     h1, h2, h3, h4, h5, h6 {
@@ -41,13 +51,15 @@
                 <thead>
                   <tr>
                       <th>Schedule</th>
+                      <th>Cron</th>
                       <th>Command</th>
                   </tr>
                 </thead>
                 <tbody>
                   {{range .Entries}}
                   <tr>
-                      <td><code>{{.Schedule}}</code></td>
+                      <td></td>
+                      <td><code class="cron-expr">{{.Schedule}}</code></td>
                       <td><code style="white-space: normal;">{{.Command}}</code></td>
                   </tr>
                   {{end}}

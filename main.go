@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net"
 	"os"
+	"os/user"
 	"regexp"
 	"sort"
 	"time"
@@ -15,18 +16,6 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
-
-// How to do it?
-// - `ssh -t user@server sudo crontab -l -u www-data`
-// - <enter sudo password for all servers>
-// - get the raw crontab for every server and persist it in a machine readable datastructure
-//   - server
-//     crontab user
-//     schedules:
-//       - schedule
-//       - command
-//       - opt. human readable description (via `echo "Human readbale" && command`)
-// - create a wonderful readable view (html)
 
 const TIMEOUT = 5
 
@@ -103,9 +92,7 @@ func (self *ServerCrontab) parseEntries() {
 			halt("parsing cron schedule failed")
 		}
 		var entry CrontabEntry = CrontabEntry{Schedule: x[1], Command: x[3], NextRun: entryForTime.Schedule.Next(time.Now())}
-		// fmt.Println(entry)
 
-		// fmt.Println("i ", i, ": ", entry)
 		self.Entries = append(self.Entries, entry)
 	}
 }
@@ -135,6 +122,14 @@ func writeFile(outputFilename string, results *ServerCrontabs) {
 	fmt.Println("... wrote to file", outputFilename)
 }
 
+func getCurrentUser() string {
+	user, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return user.Username
+}
+
 func templateCreationTime() string {
 	return time.Now().Format("2006-01-02 15:04 MST")
 }
@@ -144,10 +139,10 @@ func templateVersion() string {
 }
 
 var (
-	app            = kingpin.New("cronjoboverview", "Get an overview about all your cronjobs.")
+	app            = kingpin.New("cron2html", "Get an overview about all your cronjobs.")
 	servers        = app.Arg("servers", "server").Required().Strings()
-	sshUser        = app.Flag("user", "SSH user for login").Short('u').Required().String()
-	cronUser       = app.Flag("cron_user", "User of crontab (default is the SSH user)").Short('c').String()
+	sshUser        = app.Flag("user", "SSH user for login").Short('u').Default(getCurrentUser()).String()
+	cronUser       = app.Flag("cron-user", "User of crontab (default is the SSH user)").Short('c').String()
 	outputFilename = app.Flag("output", "Filename of the output").Short('o').Default("output.html").String()
 )
 

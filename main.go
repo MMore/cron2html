@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -15,22 +16,26 @@ import (
 const TIMEOUT = 3
 const VERSION = "1.0.0"
 
-func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
-	fmt.Println(formatRemoteCallLog(hostname, "executing command '"+cmd+"'"))
+func executeCmd(cmd string, hostport string, config *ssh.ClientConfig) string {
+	fmt.Println(formatRemoteCallLog(hostport, "executing command '"+cmd+"'"))
 
-	client, err := ssh.Dial("tcp", hostname+":22", config)
+	if !strings.Contains(hostport, ":") {
+		hostport = hostport + ":22"
+	}
+
+	client, err := ssh.Dial("tcp", hostport, config)
 	if err != nil {
-		halt(formatRemoteCallLog(hostname, "failed to connect: "+err.Error()))
+		halt(formatRemoteCallLog(hostport, "failed to connect: "+err.Error()))
 	}
 	session, err := client.NewSession()
 	if err != nil {
-		halt(formatRemoteCallLog(hostname, "failed to create session: "+err.Error()))
+		halt(formatRemoteCallLog(hostport, "failed to create session: "+err.Error()))
 	}
 	defer session.Close()
 
 	output, err := session.Output(cmd)
 	if err != nil {
-		fmt.Println(formatRemoteCallLog(hostname, "failed (empty crontab?): "+err.Error()))
+		fmt.Println(formatRemoteCallLog(hostport, "failed (empty crontab?): "+err.Error()))
 	}
 	return string(output[:])
 }
@@ -54,7 +59,7 @@ func getCurrentUser() string {
 
 var (
 	app              = kingpin.New("cron2html", "Get an overview about all your cronjobs.")
-	servers          = app.Arg("servers", "server").Required().Strings()
+	servers          = app.Arg("servers", "server (define custom SSH port by adding ':<PORT>')").Required().Strings()
 	sshUser          = app.Flag("user", "SSH user for login").Short('u').Default(getCurrentUser()).String()
 	cronUser         = app.Flag("cron-user", "User of crontab (default is the SSH user)").Short('c').String()
 	outputFilename   = app.Flag("output", "Filename of the output").Short('o').Default("output.html").String()

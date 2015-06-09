@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net"
 	"os"
 	"os/user"
-	"sort"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -14,12 +12,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-const TIMEOUT = 5
+const TIMEOUT = 3
 const VERSION = "1.0.0"
-
-func formatRemoteCallLog(hostname, msg string) string {
-	return fmt.Sprintf("[%s] %s", hostname, msg)
-}
 
 func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
 	fmt.Println(formatRemoteCallLog(hostname, "executing command '"+cmd+"'"))
@@ -36,34 +30,18 @@ func executeCmd(cmd string, hostname string, config *ssh.ClientConfig) string {
 
 	output, err := session.Output(cmd)
 	if err != nil {
-		halt(formatRemoteCallLog(hostname, "failed to execute command '"+cmd+"': "+err.Error()))
+		fmt.Println(formatRemoteCallLog(hostname, "failed (empty crontab?): "+err.Error()))
 	}
 	return string(output[:])
+}
+
+func formatRemoteCallLog(hostname, msg string) string {
+	return fmt.Sprintf("[%s] %s", hostname, msg)
 }
 
 func halt(msg string) {
 	fmt.Println(msg)
 	os.Exit(1)
-}
-
-func writeFile(outputFilename string, results *ServerCrontabs) {
-	file, err := os.OpenFile(outputFilename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		halt("opening file failed: " + err.Error())
-	}
-	defer file.Close()
-
-	templateFuncs := template.FuncMap{
-		"creationTime": templateCreationTime,
-		"version":      templateVersion,
-	}
-	template := template.Must(template.New("overview.tpl.html").Funcs(templateFuncs).ParseFiles("overview.tpl.html"))
-	sort.Sort(results)
-	err = template.Execute(file, results)
-	if err != nil {
-		halt("writing file failed: " + err.Error())
-	}
-	fmt.Println("... wrote to file", outputFilename)
 }
 
 func getCurrentUser() string {
@@ -75,11 +53,12 @@ func getCurrentUser() string {
 }
 
 var (
-	app            = kingpin.New("cron2html", "Get an overview about all your cronjobs.")
-	servers        = app.Arg("servers", "server").Required().Strings()
-	sshUser        = app.Flag("user", "SSH user for login").Short('u').Default(getCurrentUser()).String()
-	cronUser       = app.Flag("cron-user", "User of crontab (default is the SSH user)").Short('c').String()
-	outputFilename = app.Flag("output", "Filename of the output").Short('o').Default("output.html").String()
+	app              = kingpin.New("cron2html", "Get an overview about all your cronjobs.")
+	servers          = app.Arg("servers", "server").Required().Strings()
+	sshUser          = app.Flag("user", "SSH user for login").Short('u').Default(getCurrentUser()).String()
+	cronUser         = app.Flag("cron-user", "User of crontab (default is the SSH user)").Short('c').String()
+	outputFilename   = app.Flag("output", "Filename of the output").Short('o').Default("output.html").String()
+	omitEmptyServers = app.Flag("omit-empty", "Omit servers with empty crontabs").Bool()
 )
 
 func main() {
@@ -120,6 +99,7 @@ func main() {
 
 	go func() {
 		results := ServerCrontabs{}
+		skipped := 0
 		for {
 			select {
 			case result, more := <-collector:
@@ -128,11 +108,22 @@ func main() {
 					return
 				}
 				result.parseEntries()
-				results = append(results, result)
-				fmt.Println("... collected crontab with", len(result.Entries), "entries from", result.Server)
 
-				if len(results) == len(*servers) {
-					writeFile(*outputFilename, &results)
+				if !*omitEmptyServers || (*omitEmptyServers && len(result.Entries) > 0) {
+					results = append(results, result)
+					fmt.Println("... collected crontab with", len(result.Entries), "entries from", result.Server)
+				} else {
+					skipped++
+					fmt.Println("... skipped empty server", result.Server)
+				}
+
+				if len(results)+skipped == len(*servers) {
+					if len(results) > 0 {
+						writeFile(*outputFilename, &results)
+					} else {
+						halt("... stopped, nothing to save")
+					}
+
 					close(collector)
 				}
 			case <-time.After(TIMEOUT * time.Second):

@@ -1,6 +1,7 @@
 # CRON to HTML
+[![Build Status](https://travis-ci.org/Barzahlen/cron2html.svg)](https://travis-ci.org/Barzahlen/cron2html)
 
-A CRON to HTML documentation generator written in golang.
+A CRON to HTML documentation generator for multiple servers written in golang.
 
 ## Installation
 

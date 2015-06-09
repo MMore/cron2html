@@ -1,7 +1,7 @@
 FILES = main.go crontab.go template.go
 
 test:
-	go test -cover
+	go test -v -cover
 
 smoke:
 	go run $(FILES) --help

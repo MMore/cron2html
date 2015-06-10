@@ -15,6 +15,8 @@ $ go get github.com/Barzahlen/cron2html
 
 ## Usage
 
+Cron2html assumes that you authenticate to all servers via a publickey that is available in your local SSH agent. To add your default SSH publickey to SSH agent, enter `ssh-add`.
+
 ```
 cron2html --help
 cron2html -o cronjobs.html server1 server2

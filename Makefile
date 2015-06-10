@@ -7,7 +7,7 @@ smoke:
 	go run $(FILES) --help
 
 build:
-	go build -o cron2html $(FILES)
+	gox -osarch="linux/amd64 darwin/amd64"
 
 clean:
 	rm cron2html

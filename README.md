@@ -5,7 +5,7 @@ A CRON to HTML documentation generator for multiple servers written in golang.
 
 ## Installation
 
-Just download the [cron2html](https://github.com/Barzahlen/cron2html/releases/download/v1.0.0/cron2html) binary.
+Just download the [cron2html](https://github.com/Barzahlen/cron2html/releases) binary.
 
 Alternatively install it with
 

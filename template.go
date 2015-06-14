@@ -19,7 +19,11 @@ func writeFile(outputFilename string, results *ServerCrontabs) {
 		"creationTime": templateCreationTime,
 		"version":      templateVersion,
 	}
-	template := template.Must(template.New("overview.tpl.html").Funcs(templateFuncs).ParseFiles("overview.tpl.html"))
+	data, err := Asset("templates/overview.tpl.html")
+	if err != nil {
+		halt("missing template")
+	}
+	template := template.Must(template.New("overview.tpl").Funcs(templateFuncs).Parse(string(data[:])))
 	sort.Sort(results)
 	err = template.Execute(file, results)
 	if err != nil {

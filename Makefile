@@ -1,13 +1,16 @@
-FILES = main.go crontab.go template.go
+FILES = main.go crontab.go template.go bindata.go
 
-test:
+test: bindata.go
 	go test -v -cover
 
-smoke:
+smoke: $(FILES)
 	go run $(FILES) --help
 
-build:
+build: $(FILES)
 	gox -osarch="linux/amd64 darwin/amd64"
 
+bindata.go:
+	go-bindata -ignore=\.DS_Store templates/...
+
 clean:
-	rm cron2html
+	rm cron2html* bindata.go

@@ -5,4 +5,5 @@ go:
 
 install:
   - go get github.com/jteeuwen/go-bindata/...
+  - make bindata.go
   - go get -t ./

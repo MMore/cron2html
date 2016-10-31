@@ -1,16 +1,16 @@
 # CRON to HTML
-[![Build Status](https://travis-ci.org/Barzahlen/cron2html.svg)](https://travis-ci.org/Barzahlen/cron2html)
+[![Build Status](https://travis-ci.org/MMore/cron2html.svg)](https://travis-ci.org/MMore/cron2html)
 
 A CRON to HTML documentation generator for multiple servers written in golang.
 
 ## Installation
 
-Just download the [cron2html](https://github.com/Barzahlen/cron2html/releases) binary.
+Just download the [cron2html](https://github.com/MMore/cron2html/releases) binary.
 
 Alternatively install it with
 
 ```
-$ go get github.com/Barzahlen/cron2html
+$ go get github.com/MMore/cron2html
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ cron2html -o cronjobs.html server1 server2
 ```
 
 ## Example output
-![Example output](https://raw.github.com/Barzahlen/cron2html/master/example.png)
+![Example output](https://raw.github.com/MMore/cron2html/master/example.png)
 
 ## Contributing
 This is an open source project and your contribution is very much appreciated.
